@@ -102,7 +102,7 @@ module Danger
 
       files = []
 
-      REXML::Document.new(File.read(file_path)).root.elements.each('file') do |f|
+      REXML::Document.new(File.read(file_path)).root.elements.each("file") do |f|
         files << CheckstyleReports::Entity::FoundFile.new(f, prefix: prefix)
       end
 
@@ -112,7 +112,7 @@ module Danger
         files.select! { |f| target_files.include?(f.relative_path) }
       end
 
-      files.reject!(&:errors_empty?)
+      files.reject! { |f| f.errors.empty? }
       files
     end
 
