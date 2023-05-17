@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require "pathname"
-require "rexml/document"
+require 'pathname'
+require 'rexml/document'
 
-require_relative "gem_version"
+require_relative 'gem_version'
 
-require_relative "lib/severity"
+require_relative 'lib/severity'
 
-require_relative "entity/found_error"
-require_relative "entity/found_file"
+require_relative 'entity/found_error'
+require_relative 'entity/found_file'
 
 module Danger
   # Comment checkstyle reports.
@@ -29,7 +29,7 @@ module Danger
   # @tags android, checkstyle
   #
   class DangerCheckstyleReports < Plugin
-    REPORT_METHODS = %i(message warn fail).freeze
+    REPORT_METHODS = %i[message warn fail].freeze
 
     # *Optional*
     # An absolute path to a root.
@@ -56,6 +56,13 @@ module Danger
     # @return [String, Symbol] error by default
     attr_accessor :report_method
 
+    # Enable filtering
+    # Only show messages within changed files.
+    attr_accessor :filtering
+
+    # Only show messages for the modified lines.
+    attr_accessor :filtering_lines
+
     # The array of files which include at least one error
     #
     # @return [Array<String>] a collection of relative paths
@@ -67,14 +74,14 @@ module Danger
     # @param [Boolean] modified_files_only which is a flag to filter out non-added/non-modified files
     # @return [void] void
     def report(xml_file, modified_files_only: true)
-      raise "File path must not be empty" if xml_file.empty?
-      raise "File not found" unless File.exist?(xml_file)
+      raise 'File path must not be empty' if xml_file.empty?
+      raise 'File not found' unless File.exist?(xml_file)
 
       @min_severity = (min_severity || :error).to_sym
       @report_method = (report_method || :fail).to_sym
 
-      raise "Unknown severity found" unless CheckstyleReports::Severity::VALUES.include?(min_severity)
-      raise "Unknown report method" unless REPORT_METHODS.include?(report_method)
+      raise 'Unknown severity found' unless CheckstyleReports::Severity::VALUES.include?(min_severity)
+      raise 'Unknown report method' unless REPORT_METHODS.include?(report_method)
 
       files = parse_xml(xml_file, modified_files_only)
 
@@ -95,7 +102,7 @@ module Danger
 
       files = []
 
-      REXML::Document.new(File.read(file_path)).root.elements.each("file") do |f|
+      REXML::Document.new(File.read(file_path)).root.elements.each('file') do |f|
         files << CheckstyleReports::Entity::FoundFile.new(f, prefix: prefix)
       end
 
@@ -105,7 +112,7 @@ module Danger
         files.select! { |f| target_files.include?(f.relative_path) }
       end
 
-      files.reject! { |f| f.errors.empty? }
+      files.reject!(&:errors_empty?)
       files
     end
 
@@ -115,19 +122,59 @@ module Danger
     # @return [void] void
     def do_comment(files)
       base_severity = CheckstyleReports::Severity.new(min_severity)
+      target_files = git.modified_files + git.added_files
+      target_lines = {}
+
+      if filtering_lines
+        target_files.each do |file|
+          added_lines = parse_added_line_numbers(git.diff[file].patch)
+          target_lines[file] = added_lines
+        end
+      end
 
       files.each do |f|
         f.errors.each do |e|
           # check severity
           next unless base_severity <= e.severity
 
+          if filtering_lines
+            next unless target_files.include?(f.relative_path)
+            added_lines = target_lines[f.relative_path]
+            next unless added_lines.include?(e.line_number)
+          end
+
           if inline_comment
-            self.public_send(report_method, e.html_unescaped_message, file: f.relative_path, line: e.line_number)
+            public_send(report_method, e.html_unescaped_message, file: f.relative_path, line: e.line_number)
           else
-            self.public_send(report_method, "#{f.relative_path} : #{e.html_unescaped_message} at #{e.line_number}")
+            public_send(report_method, "#{f.relative_path} : #{e.html_unescaped_message} at #{e.line_number}")
           end
         end
       end
+    end
+
+    # Parses git diff of a file and returns an array of added line numbers.
+    def parse_added_line_numbers(diff)
+      current_line_number = nil
+      added_line_numbers = []
+      diff_lines = diff.strip.split("\n")
+      diff_lines.each_with_index do |line, index|
+        if (m = %r{\+(\d+)(?:,\d+)? @@}.match(line))
+          # (e.g. @@ -32,10 +32,7 @@)
+          current_line_number = Integer(m[1])
+        else
+          if !current_line_number.nil?
+            if line.start_with?('+')
+              # added line
+              added_line_numbers.push(current_line_number)
+              current_line_number += 1
+            elsif !line.start_with?('-')
+              # unmodified line
+              current_line_number += 1
+            end
+          end
+        end
+      end
+      added_line_numbers
     end
   end
 end
