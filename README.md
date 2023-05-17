@@ -1,13 +1,11 @@
-[![Build Status](https://travis-ci.com/jmatsu/danger-checkstyle_reports.svg?branch=master)](https://travis-ci.com/jmatsu/danger-checkstyle_reports) [![Gem Version](https://badge.fury.io/rb/danger-checkstyle_reports.svg)](https://badge.fury.io/rb/danger-checkstyle_reports)
-
-# danger-checkstyle_reports
+# ktlint_reporter
 
 This is a plugin of [Danger](https://github.com/danger/danger) for Android projects.
 This reports checkstyle results.
 
 ## Installation
 
-`gem install danger-checkstyle_reports`
+`gem install ktlint_reporter`
 
 ## Usage
 
@@ -18,6 +16,8 @@ This reports checkstyle results.
 ```
 # If you'd like inlining comments
 checkstyle_reports.inline_comment = true
+# If you want to filter only modified lines
+checkstyle_reports.filtering_lines = true
 checkstyle_reports.report(/path/to/xml)
 ```
 
