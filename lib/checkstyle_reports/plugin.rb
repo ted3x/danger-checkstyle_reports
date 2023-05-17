@@ -129,6 +129,7 @@ module Danger
         target_files.each do |file|
           added_lines = parse_added_line_numbers(git.diff[file].patch)
           target_lines[file] = added_lines
+        end
       end
 
       files.each do |f|
