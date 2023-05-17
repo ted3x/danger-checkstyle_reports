@@ -125,11 +125,9 @@ module Danger
       target_files = git.modified_files + git.added_files
       target_lines = {}
 
-      if filtering_lines
-        target_files.each do |file|
-          added_lines = parse_added_line_numbers(git.diff[file].patch)
-          target_lines[file] = added_lines
-        end
+      target_files.each do |file|
+        added_lines = parse_added_line_numbers(git.diff[file].patch)
+        target_lines[file] = added_lines
       end
 
       files.each do |f|
@@ -137,11 +135,9 @@ module Danger
           # check severity
           next unless base_severity <= e.severity
 
-          if filtering_lines
-            next unless target_files.include?(f.relative_path)
-            added_lines = target_lines[f.relative_path]
-            next unless added_lines.include?(e.line_number)
-          end
+          next unless target_files.include?(f.relative_path)
+          added_lines = target_lines[f.relative_path]
+          next unless added_lines.include?(e.line_number)
 
           if inline_comment
             public_send(report_method, e.html_unescaped_message, file: f.relative_path, line: e.line_number)
